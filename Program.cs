@@ -16,6 +16,31 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.MapGet("/documents", () => {
+    using var db = new DocumentContext();
+    var documents = db.Documents.ToList().OrderBy(d => d.CreatedAt);
+    return new { documents};
+}).WithName("GetDocuments").WithOpenApi();
+
+app.MapPost("/documents", (CreateDocumentReqDto document) => {
+    using var db = new DocumentContext();
+    var newDocument = new Document {
+        Name = document.Name,
+        Content = document.Content,
+        CreatedAt = DateTime.UtcNow
+    };
+
+    db.Documents.Add(newDocument);
+    db.SaveChanges();
+
+    var response = new {
+        message = "Document created",
+        document
+    };
+
+    return Results.Created($"/documents/{newDocument.Id}", response);
+}).WithName("CreateDocument").WithOpenApi();
+
 app.MapGet("/health", () => {
     return new { message = "Healthy" };
 }).WithName("HealthCheck").WithOpenApi();
