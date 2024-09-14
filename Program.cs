@@ -1,4 +1,8 @@
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext<DocumentDb>(options => options.UseNpgsql("Host=localhost;Username=postgres;Password=postgres;Database=reciprocal"));
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -16,14 +20,14 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.MapGet("/documents", () => {
-    using var db = new DocumentContext();
-    var documents = db.Documents.ToList().OrderBy(d => d.CreatedAt);
-    return new { documents};
+var documents = app.MapGroup("/documents");
+
+documents.MapGet("/", async (DocumentDb db) => {
+    var documents = await db.Documents.ToListAsync();
+    return TypedResults.Ok(new { documents });
 }).WithName("GetDocuments").WithOpenApi();
 
-app.MapPost("/documents", (CreateDocumentReqDto document) => {
-    using var db = new DocumentContext();
+app.MapPost("/", async (CreateDocumentReqDto document, DocumentDb db) => {
     var newDocument = new Document {
         Name = document.Name,
         Content = document.Content,
@@ -31,18 +35,26 @@ app.MapPost("/documents", (CreateDocumentReqDto document) => {
     };
 
     db.Documents.Add(newDocument);
-    db.SaveChanges();
+    await db.SaveChangesAsync();
 
     var response = new {
         message = "Document created",
         document
     };
 
-    return Results.Created($"/documents/{newDocument.Id}", response);
+    return TypedResults.Created($"/documents/{newDocument.Id}", response);
 }).WithName("CreateDocument").WithOpenApi();
 
-app.MapGet("/health", () => {
-    return new { message = "Healthy" };
-}).WithName("HealthCheck").WithOpenApi();
+app.MapDelete("/{id}", async (int id, DocumentDb db) => {
+    var document = await db.Documents.FindAsync(id);
+
+    if (document is null){
+        return Results.NotFound(new { message = "Document not found" });
+    }
+
+    db.Documents.Remove(document);
+    await db.SaveChangesAsync();
+    return TypedResults.Ok(new { message = "Document deleted" });
+}).WithName("DeleteDocument").WithOpenApi();
 
 app.Run();
