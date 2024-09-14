@@ -53,6 +53,6 @@ app.MapDelete("/documents/{id}", async (int id, DocumentDb db) => {
     db.Documents.Remove(document);
     await db.SaveChangesAsync();
     return Results.Ok(new { message = "Document deleted" });
-});
+}).WithName("DeleteDocument").WithOpenApi();
 
 app.Run();
