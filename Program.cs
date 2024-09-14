@@ -20,12 +20,14 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.MapGet("/documents", async (DocumentDb db) => {
+var documents = app.MapGroup("/documents");
+
+documents.MapGet("/", async (DocumentDb db) => {
     var documents = await db.Documents.ToListAsync();
-    return new { documents};
+    return TypedResults.Ok(new { documents });
 }).WithName("GetDocuments").WithOpenApi();
 
-app.MapPost("/documents", async (CreateDocumentReqDto document, DocumentDb db) => {
+app.MapPost("/", async (CreateDocumentReqDto document, DocumentDb db) => {
     var newDocument = new Document {
         Name = document.Name,
         Content = document.Content,
@@ -33,17 +35,17 @@ app.MapPost("/documents", async (CreateDocumentReqDto document, DocumentDb db) =
     };
 
     db.Documents.Add(newDocument);
-    db.SaveChanges();
+    await db.SaveChangesAsync();
 
     var response = new {
         message = "Document created",
         document
     };
 
-    return Results.Created($"/documents/{newDocument.Id}", response);
+    return TypedResults.Created($"/documents/{newDocument.Id}", response);
 }).WithName("CreateDocument").WithOpenApi();
 
-app.MapDelete("/documents/{id}", async (int id, DocumentDb db) => {
+app.MapDelete("/{id}", async (int id, DocumentDb db) => {
     var document = await db.Documents.FindAsync(id);
 
     if (document is null){
@@ -52,7 +54,7 @@ app.MapDelete("/documents/{id}", async (int id, DocumentDb db) => {
 
     db.Documents.Remove(document);
     await db.SaveChangesAsync();
-    return Results.Ok(new { message = "Document deleted" });
+    return TypedResults.Ok(new { message = "Document deleted" });
 }).WithName("DeleteDocument").WithOpenApi();
 
 app.Run();
