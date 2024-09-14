@@ -2,10 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 
-public class DocumentContext : DbContext{
+public class DocumentDb : DbContext{
     public DbSet<Document> Documents { get; set; }
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        => optionsBuilder.UseNpgsql(@"Host=localhost;Username=postgres;Password=postgres;Database=reciprocal");
+    public DocumentDb(DbContextOptions<DocumentDb> options): base(options) { }
 }
 
 public class Document{
