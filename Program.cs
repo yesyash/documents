@@ -22,13 +22,35 @@ app.UseHttpsRedirection();
 
 var documents = app.MapGroup("/documents");
 
-documents.MapGet("/", async (DocumentDb db) => {
-    var documents = await db.Documents.ToListAsync();
-    return TypedResults.Ok(new { documents });
-}).WithName("GetDocuments").WithOpenApi();
+documents.MapGet("/", GetAllDocuments).WithName("GetAllDocuments").WithOpenApi();
+documents.MapGet("/{id}", GetDocumentById);
+documents.MapPost("/", CreateDocument);
+documents.MapDelete("/{id}", DeleteDocument);
 
-app.MapPost("/", async (CreateDocumentReqDto document, DocumentDb db) => {
-    var newDocument = new Document {
+app.Run();
+
+static async Task<IResult> GetAllDocuments(DocumentDb db)
+{
+    var documents = await db.Documents.ToArrayAsync();
+    return TypedResults.Ok(new { documents });
+}
+
+static async Task<IResult> GetDocumentById(int id, DocumentDb db)
+{
+    var document = await db.Documents.FindAsync(id);
+
+    if (document is null)
+    {
+        return TypedResults.NotFound(new { message = "Document not found" });
+    }
+
+    return TypedResults.Ok(new { document });
+}
+
+static async Task<IResult> CreateDocument(CreateDocumentReqDto document, DocumentDb db)
+{
+    var newDocument = new Document
+    {
         Name = document.Name,
         Content = document.Content,
         CreatedAt = DateTime.UtcNow
@@ -37,24 +59,25 @@ app.MapPost("/", async (CreateDocumentReqDto document, DocumentDb db) => {
     db.Documents.Add(newDocument);
     await db.SaveChangesAsync();
 
-    var response = new {
+    var response = new
+    {
         message = "Document created",
         document
     };
 
     return TypedResults.Created($"/documents/{newDocument.Id}", response);
-}).WithName("CreateDocument").WithOpenApi();
+}
 
-app.MapDelete("/{id}", async (int id, DocumentDb db) => {
+static async Task<IResult> DeleteDocument(int id, DocumentDb db)
+{
     var document = await db.Documents.FindAsync(id);
 
-    if (document is null){
-        return Results.NotFound(new { message = "Document not found" });
+    if (document is null)
+    {
+        return TypedResults.NotFound(new { message = "Document not found" });
     }
 
     db.Documents.Remove(document);
     await db.SaveChangesAsync();
     return TypedResults.Ok(new { message = "Document deleted" });
-}).WithName("DeleteDocument").WithOpenApi();
-
-app.Run();
+}
